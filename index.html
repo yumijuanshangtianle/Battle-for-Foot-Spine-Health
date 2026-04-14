@@ -20,6 +20,22 @@
     ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
     ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    
+    /* 摇骰子动画 */
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-1px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(3px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+    .dice-rolling { animation: shake 0.5s infinite; }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-900">
@@ -32,7 +48,7 @@
 
     // --- 数据定义 ---
 
-    // 角色头像图片映射 (修复了文件后缀名，统一改为 png)
+    // 角色头像图片映射
     const AVATAR_MAP = {
       '课代表': '1 课代表.png',
       '足球小将': '2 足球小将.png',
@@ -41,7 +57,7 @@
       '书包超重者': '3 书包超重同学.png',
       '舞蹈生': '4 舞蹈生.png',
       '美术生': '7 美术生.png',
-      '值日班长': '把图_1_人物的体型修改成与图_202604011758.png'
+      '值日班长': '8 值日生.png'
     };
 
     // 0-49格 对应地图上的位置百分比
@@ -80,7 +96,7 @@
       ],
       risks: [
         { name: '低头玩手机', effect: { spine: -4, foot: 0 }, count: 1 },
-        { name: '久坐疲劳', effect: { spine: -2, foot: -1 }, count: 2 },
+        { name: '久坐疲劳', effect: { spine: -2, foot: -1 }, count: 1 },
         { name: '耸肩驼背', effect: { spine: -2, foot: 0 }, count: 1 },
         { name: '翘腿悬空', effect: { spine: 0, foot: -2 }, count: 1 },
         { name: '单肩书包', effect: { spine: -2, foot: 0 }, count: 1 },
@@ -98,24 +114,34 @@
         { name: '书包超重', effect: { spine: -2, foot: -1 }, count: 1 },
       ],
       items: [
-        { name: '靠垫', desc: '脊柱+2', effect: { spine: 2, foot: 0 }, count: 4 },
-        { name: '筋膜球', desc: '足部+2', effect: { spine: 0, foot: 2 }, count: 4 },
+        { name: '靠垫', desc: '脊柱+2', effect: { spine: 2, foot: 0 }, count: 3 },
+        { name: '筋膜球', desc: '足部+2', effect: { spine: 0, foot: 2 }, count: 3 },
         { name: '休息室', desc: '足部+3', effect: { spine: 0, foot: 3 }, count: 2 },
-        { name: '营养套餐', desc: '脊柱+1, 足部+1', effect: { spine: 1, foot: 1 }, count: 3 },
+        { name: '肉蛋奶套餐', desc: '脊柱+1, 足部+1', effect: { spine: 1, foot: 1 }, count: 3 },
         { name: '护眼镜', desc: '脊柱+2', effect: { spine: 2, foot: 0 }, count: 2 },
+        { name: '行动卡', desc: '重新洗牌', effect: { spine: 0, foot: 0 }, special: 'shuffle', count: 2 },
+        { name: '运动手环', desc: '触发答题', effect: { spine: 0, foot: 0 }, special: 'trivia', count: 2 },
+        { name: '顶包卡', desc: '将风险转移给他人', effect: { spine: 0, foot: 0 }, special: 'transfer', count: 3 }
       ],
       trivia: [
         { name: '知识问答卡', effect: { spine: 0, foot: 0 }, count: 10 }
       ]
     };
 
+    // 录入全部 12 道题库
     const TRIVIA_QUESTIONS = [
-      { q: '正常人的脊柱有多少个生理弯曲？', options: ['A. 2个', 'B. 4个'], correct: 1 },
-      { q: '良好的阅读距离应该是多少？', options: ['A. 10厘米左右', 'B. 33-35厘米'], correct: 1 },
-      { q: '长时间跷二郎腿最容易引起什么问题？', options: ['A. 骨盆倾斜与脊柱侧弯', 'B. 视力急剧下降'], correct: 0 },
-      { q: '睡眠时哪种姿势对脊柱最友好？', options: ['A. 趴着睡', 'B. 平躺或侧卧'], correct: 1 },
-      { q: '健康的书包重量不应超过体重的多少？', options: ['A. 10%-15%', 'B. 30%'], correct: 0 },
-      { q: '出现高低肩可能是因为什么不良习惯？', options: ['A. 经常单肩背包', 'B. 每天跑步'], correct: 0 },
+      { id: 1, q: '正常的脊柱有多少个椎骨？', options: ['A. 26个', 'B. 33个'], correct: 1 },
+      { id: 2, q: '正确的坐姿应该是什么样的？', options: ['A. 弯腰驼背，双腿交叉', 'B. 背部挺直，双脚平放在地面，膝盖与髋部平行'], correct: 1 },
+      { id: 3, q: '长时间低头看手机可能导致什么健康问题？', options: ['A. “手机颈”或颈椎问题', 'B. 视力提高'], correct: 0 },
+      { id: 4, q: '保持良好的站姿有哪些要点？', options: ['A. 重心全放在一只脚上', 'B. 双脚分开与肩同宽，重心均匀分布，背部挺直'], correct: 1 },
+      { id: 5, q: '足弓的作用是什么？', options: ['A. 吸收冲击，提供稳定性和支撑力', 'B. 没有实际作用'], correct: 0 },
+      { id: 6, q: '每天至少应该进行多少分钟的中等强度运动以促进健康？', options: ['A. 30分钟', 'B. 至少150分钟'], correct: 1 },
+      { id: 7, q: '哪些食物对骨骼健康有益？', options: ['A. 碳酸饮料', 'B. 富含钙和维生素D的食物（如奶制品、深绿色蔬菜）'], correct: 1 },
+      { id: 8, q: '如何预防脚气？', options: ['A. 保持脚部干燥和清洁，定期更换袜子', 'B. 经常穿不透气的湿鞋'], correct: 0 },
+      { id: 9, q: '睡眠时最推荐的睡姿是什么？', options: ['A. 趴着睡', 'B. 侧卧睡姿'], correct: 1 },
+      { id: 10, q: '什么是“坐骨神经痛”？', options: ['A. 坐骨神经受压或刺激引起的疼痛', 'B. 肚子痛'], correct: 0 },
+      { id: 11, q: '站立时，身体的重心应该主要放在脚的哪个部位？', options: ['A. 均匀分布在双脚，避免重心偏向一侧', 'B. 偏向一侧'], correct: 0 },
+      { id: 12, q: '跳绳时应该用前脚掌还是全脚掌落地？', options: ['A. 全脚掌', 'B. 前脚掌落地，利用足弓缓冲'], correct: 1 },
     ];
 
     function App() {
@@ -128,6 +154,12 @@
       const [turnPhase, setTurnPhase] = useState('draw'); // draw, action
       
       const [modal, setModal] = useState(null);
+      const [showLibrary, setShowLibrary] = useState(false); // 牌库显示状态
+      const [libraryTab, setLibraryTab] = useState('roles'); // 牌库当前标签页
+
+      // 摇骰子动画状态
+      const [isRolling, setIsRolling] = useState(false);
+      const [diceNumber, setDiceNumber] = useState(1);
 
       const endLogRef = useRef(null);
 
@@ -278,6 +310,76 @@
         });
       };
 
+      const executeTransfer = (targetIdx, cardIdx) => {
+        const player = players[currentPlayerIdx];
+        const targetPlayer = players[targetIdx];
+        const card = modal.card;
+
+        setModal(null);
+        setTurnPhase('action');
+
+        const newHand = [...player.hand];
+        newHand.splice(cardIdx, 1);
+        
+        addLog(`🃏 ${player.name} 打出【顶包卡】，把 [${card.name}] 的风险转移给了 ${targetPlayer.name}！`);
+
+        let spineMod = card.effect.spine;
+        let footMod = card.effect.foot;
+        
+        if (targetPlayer.role.name === '书包超重者' && (card.name === '单肩书包' || card.name === '书包超重')) {
+          spineMod = 0;
+          footMod = 0;
+          addLog(`🛡️ ${targetPlayer.name} 发动【书包超重者】被动，免疫了转移来的 ${card.name}！`);
+        } else if (targetPlayer.role.name === '游戏爱好者' && (card.name === '久坐疲劳' || card.name === '低头玩手机')) {
+          spineMod = Math.ceil(spineMod / 2);
+          footMod = Math.ceil(footMod / 2);
+          addLog(`🎮 ${targetPlayer.name} 发动【游戏爱好者】被动，转移来的 ${card.name} 伤害减半！`);
+        } else {
+          addLog(`⚠️ ${targetPlayer.name} 无奈承受了转移来的风险 (脊柱${spineMod}, 足部${footMod})`);
+        }
+
+        setPlayers(prev => {
+            const newPlayers = [...prev];
+            newPlayers[currentPlayerIdx] = { ...newPlayers[currentPlayerIdx], hand: newHand };
+            let t = { ...newPlayers[targetIdx] };
+            t.spine += spineMod;
+            t.foot += footMod;
+            if (t.foot <= 0 && !t.isOut) {
+                t.isOut = true;
+                t.foot = 0;
+                addLog(`❌ ${t.name} 的足部值耗尽，已退出游戏！`);
+            }
+            newPlayers[targetIdx] = t;
+            return newPlayers;
+        });
+      };
+
+      // 摇骰子逻辑
+      const rollDiceForTrivia = () => {
+        setIsRolling(true);
+        let rolls = 0;
+        const rollInterval = setInterval(() => {
+          setDiceNumber(Math.floor(Math.random() * 12) + 1);
+          rolls++;
+          if (rolls > 15) { // 滚动15次后停止
+            clearInterval(rollInterval);
+            setIsRolling(false);
+            const finalIndex = Math.floor(Math.random() * 12);
+            setDiceNumber(finalIndex + 1);
+            
+            // 停顿一秒后进入真实答题界面
+            setTimeout(() => {
+               setModal({ 
+                 type: 'trivia', 
+                 question: TRIVIA_QUESTIONS[finalIndex], 
+                 playCost: modal.playCost, 
+                 cardIdx: modal.cardIdx 
+               });
+            }, 1000);
+          }
+        }, 80);
+      };
+
       const resolveTrivia = (isCorrect) => {
         const player = players[currentPlayerIdx];
         const cost = modal.playCost || 0;
@@ -318,18 +420,22 @@
       const handlePlayCard = (cardIdx) => {
         const player = players[currentPlayerIdx];
         const cost = player.role.name === '活力运动员' ? 1 : 2;
+        const card = player.hand[cardIdx];
+
+        if (card.name === '顶包卡') {
+          alert('【顶包卡】是一张反应牌，无需消耗足部值。它只能在你抽到【风险卡】时，在弹出的警告框中点击使用哦！');
+          return;
+        }
 
         if (player.foot <= cost) {
           alert(`足部值不足以出牌（需要 ${cost} 点）！`);
           return;
         }
 
-        const card = player.hand[cardIdx];
-
-        if (card.type === 'trivia') {
+        // 打出问答卡，进入摇骰子阶段
+        if (card.type === 'trivia' || card.special === 'trivia') {
           addLog(`🃏 ${player.name} 消耗 ${cost} 点足部值，打出 [${card.name}]。`);
-          const q = TRIVIA_QUESTIONS[Math.floor(Math.random() * TRIVIA_QUESTIONS.length)];
-          setModal({ type: 'trivia', card, question: q, playCost: cost, cardIdx });
+          setModal({ type: 'dice', playCost: cost, cardIdx });
           return;
         }
         
@@ -342,6 +448,12 @@
         }
 
         addLog(`🃏 ${player.name} 消耗 ${cost} 点足部值，打出 [${card.name}]。`);
+
+        if (card.special === 'shuffle') {
+          const shuffledDeck = [...deck].sort(() => Math.random() - 0.5);
+          setDeck(shuffledDeck);
+          addLog(`🔀 [行动卡] 效果触发：剩余牌堆已被重新洗牌！`);
+        }
 
         const newHand = [...player.hand];
         newHand.splice(cardIdx, 1);
@@ -378,10 +490,102 @@
         setTurnPhase('draw');
       };
 
+      // 渲染牌库图鉴
+      const renderLibrary = () => {
+        if (!showLibrary) return null;
+
+        const tabs = [
+          { id: 'roles', label: '角色牌' },
+          { id: 'postures', label: '姿势卡' },
+          { id: 'risks', label: '风险卡' },
+          { id: 'items', label: '道具卡' },
+          { id: 'trivia', label: '题库 (12题)' },
+        ];
+
+        return (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[60]">
+            <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl overflow-hidden relative">
+              <button 
+                onClick={() => setShowLibrary(false)}
+                className="absolute top-4 right-4 bg-gray-200 hover:bg-red-500 hover:text-white w-8 h-8 rounded-full flex items-center justify-center font-bold transition z-10"
+              >
+                ✕
+              </button>
+              
+              <div className="bg-indigo-600 text-white p-6 pb-0">
+                <h2 className="text-2xl font-bold mb-4">📚 足脊健康保卫战 牌库图鉴</h2>
+                <div className="flex gap-2 overflow-x-auto">
+                  {tabs.map(tab => (
+                    <button 
+                      key={tab.id}
+                      onClick={() => setLibraryTab(tab.id)}
+                      className={`px-4 py-2 rounded-t-lg font-bold transition-colors ${libraryTab === tab.id ? 'bg-white text-indigo-700' : 'bg-indigo-500 hover:bg-indigo-400 text-white'}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+                {libraryTab === 'roles' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {ROLES.map(role => (
+                      <div key={role.id} className="bg-white p-5 rounded-xl border-2 border-purple-100 shadow-sm">
+                        <div className="font-bold text-xl text-purple-700 mb-2">{role.name}</div>
+                        <div className="text-sm text-gray-600 leading-relaxed font-medium">{role.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(libraryTab === 'postures' || libraryTab === 'risks' || libraryTab === 'items') && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {CARDS_DATA[libraryTab].map((card, idx) => {
+                      let color = libraryTab === 'postures' ? 'bg-green-50 border-green-300' : 
+                                  libraryTab === 'risks' ? 'bg-red-50 border-red-300' : 
+                                  'bg-blue-50 border-blue-300';
+                      return (
+                        <div key={idx} className={`p-4 rounded-xl border-2 ${color} shadow-sm`}>
+                          <div className="font-bold text-base mb-2">{card.name}</div>
+                          <div className="text-xs text-gray-700 space-y-1">
+                            {card.effect.spine !== 0 && <div>脊柱: <span className="font-bold">{card.effect.spine > 0 ? '+'+card.effect.spine : card.effect.spine}</span></div>}
+                            {card.effect.foot !== 0 && <div>足部: <span className="font-bold">{card.effect.foot > 0 ? '+'+card.effect.foot : card.effect.foot}</span></div>}
+                            {card.desc && <div className="text-gray-500 italic mt-1">{card.desc}</div>}
+                            <div className="mt-2 text-[10px] text-gray-400">牌堆数量: {card.count}张</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {libraryTab === 'trivia' && (
+                  <div className="space-y-4">
+                    {TRIVIA_QUESTIONS.map(q => (
+                      <div key={q.id} className="bg-yellow-50 p-4 rounded-xl border border-yellow-300 shadow-sm">
+                        <div className="font-bold text-gray-800 mb-2">题号 {q.id}：{q.q}</div>
+                        <div className="flex flex-col gap-1 text-sm pl-4">
+                          {q.options.map((opt, i) => (
+                            <div key={i} className={`${i === q.correct ? 'text-green-600 font-bold' : 'text-gray-500'}`}>
+                              {opt} {i === q.correct && '✓'}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
       const renderMenu = () => (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-green-50 p-6">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-green-50 p-6 relative">
           <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden text-center">
-            <div className="bg-green-600 p-6 text-white">
+            <div className="bg-green-600 p-6 text-white relative">
               <h1 className="text-3xl font-bold mb-2">足脊健康保卫战</h1>
               <p className="text-green-100">青少年科普互动模拟器</p>
             </div>
@@ -420,22 +624,27 @@
         let colorClass = isPosture ? 'bg-green-100 border-green-400 text-green-800' : 
                          isTrivia ? 'bg-yellow-100 border-yellow-400 text-yellow-800' :
                          'bg-blue-100 border-blue-400 text-blue-800';
+                         
+        const typeLabel = isPosture ? '【姿势】' : isItem ? '【道具】' : isTrivia ? '【问答】' : '';
         
-        // 压缩了卡片的内边距和宽度
         return (
           <div key={idx} className={`relative flex flex-col p-2 border-2 rounded-lg shadow-sm ${colorClass} w-24 shrink-0`}>
-            <div className="font-bold text-xs mb-1 line-clamp-1" title={card.name}>{card.name}</div>
+            <div className="font-bold text-[11px] mb-1 leading-tight line-clamp-2" title={card.name}>
+              <span className="text-[9px] opacity-75">{typeLabel}</span><br/>{card.name}
+            </div>
             <div className="text-[10px] flex-1 leading-tight">
               {card.effect && card.effect.spine !== 0 && <div>脊柱: {card.effect.spine > 0 ? '+'+card.effect.spine : card.effect.spine}</div>}
               {card.effect && card.effect.foot !== 0 && <div>足部: {card.effect.foot > 0 ? '+'+card.effect.foot : card.effect.foot}</div>}
-              {isTrivia && <div className="mt-0.5 font-bold">答题赢分</div>}
+              {(isTrivia || card.special === 'trivia') && <div className="mt-0.5 font-bold text-yellow-700">🎲 摇骰答题</div>}
+              {card.special === 'shuffle' && <div className="mt-0.5 font-bold text-blue-700">🔀 重新洗牌</div>}
+              {card.special === 'transfer' && <div className="mt-0.5 font-bold text-purple-700">🛡️ 弹窗中触发</div>}
             </div>
             {isHand && turnPhase === 'action' && (
               <button 
                 onClick={() => handlePlayCard(idx)}
-                className="mt-1 bg-white text-gray-800 text-[10px] py-1 px-1 rounded border border-gray-300 hover:bg-gray-100 font-bold leading-none"
+                className="mt-1 bg-white text-gray-800 text-[10px] py-1 px-1 rounded border border-gray-300 hover:bg-gray-100 font-bold leading-none shadow-sm"
               >
-                出牌(耗{players[currentPlayerIdx].role.name === '活力运动员' ? 1 : 2})
+                出牌(耗{players[currentPlayerIdx]?.role.name === '活力运动员' ? 1 : 2})
               </button>
             )}
           </div>
@@ -444,60 +653,68 @@
 
       const renderGame = () => {
         const currentPlayer = players[currentPlayerIdx];
+        const scapegoatIdx = currentPlayer?.hand.findIndex(c => c.name === '顶包卡') ?? -1;
+        const validTargets = players.filter((p, i) => !p.isOut && i !== currentPlayerIdx);
 
         return (
-          <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row max-w-6xl mx-auto shadow-2xl">
+          <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row w-full max-w-[1400px] mx-auto shadow-2xl relative">
             
-            <div className="w-full md:w-1/3 bg-white border-r p-4 flex flex-col h-auto md:h-screen overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 bg-gray-100 p-3 rounded-lg">
+            {/* 牌库按钮浮窗 */}
+            <button 
+              onClick={() => setShowLibrary(true)}
+              className="absolute top-4 right-4 z-40 bg-indigo-600 text-white px-4 py-2 rounded-full font-bold shadow-lg hover:bg-indigo-700 hover:scale-105 transition flex items-center gap-1"
+            >
+              📚 牌库
+            </button>
+
+            {/* ----- 左侧栏：大幅缩减宽度至1/4或220px，重新排版内容防止挤压 ----- */}
+            <div className="w-full md:w-1/4 lg:w-[220px] shrink-0 bg-white border-r p-3 flex flex-col h-auto md:h-screen overflow-y-auto">
+              <div className="flex items-center justify-between mb-3 bg-gray-100 p-2 rounded-lg">
                 <div>
-                  <span className="text-xs text-gray-500 block">剩余牌堆</span>
-                  <span className="font-bold text-lg">{deck.length} 张</span>
+                  <span className="text-[10px] text-gray-500 block">剩余牌堆</span>
+                  <span className="font-bold text-base">{deck.length} 张</span>
                 </div>
                 <span className="text-xl">🎴</span>
               </div>
 
-              <h3 className="font-bold text-gray-700 mb-2">玩家状态</h3>
-              <div className="space-y-3 mb-6">
+              <h3 className="font-bold text-gray-700 mb-2 text-sm">玩家状态</h3>
+              <div className="space-y-2 mb-4">
                 {players.map((p, i) => (
-                  <div key={p.id} className={`p-3 rounded-lg border ${i === currentPlayerIdx ? 'border-green-500 bg-green-50 shadow-md' : 'border-gray-200'} ${p.isOut ? 'opacity-50' : ''}`}>
-                    <div className="flex justify-between items-start mb-1">
+                  <div key={p.id} className={`p-2 rounded-lg border ${i === currentPlayerIdx ? 'border-green-500 bg-green-50 shadow-md' : 'border-gray-200'} ${p.isOut ? 'opacity-50' : ''}`}>
+                    <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <img src={AVATAR_MAP[p.role.name]} className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover bg-gray-100" alt="avatar" />
-                        <div>
-                          <span className="font-bold flex items-center gap-1">
-                            {p.name} {i === currentPlayerIdx && ' (当前)'}
-                          </span>
-                          <div className="text-xs text-gray-600">
-                            <span className="font-semibold text-purple-700">[{p.role.name}]</span>
+                        <img src={AVATAR_MAP[p.role.name]} className="w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover bg-gray-100 shrink-0" alt="avatar" />
+                        <div className="overflow-hidden">
+                          <div className="font-bold flex items-center gap-1 text-sm truncate">
+                            {p.name} {i === currentPlayerIdx && <span className="text-green-600 text-[10px] shrink-0">(当前)</span>}
                           </div>
+                          <div className="text-[10px] text-purple-700 font-semibold truncate">[{p.role.name}]</div>
                         </div>
                       </div>
-                      {p.isOut && <span className="text-red-500 text-xs font-bold mt-1">出局</span>}
-                    </div>
-                    <div className="flex gap-4 text-sm font-medium mt-3 bg-white px-2 py-1 rounded border">
-                      <span className="flex items-center gap-1 text-green-600">🪙 {p.spine}</span>
-                      <span className="flex items-center gap-1 text-blue-600">⚡ {p.foot}</span>
-                      <span className="text-gray-500">手牌: {p.hand.length}</span>
+                      {p.isOut && <span className="text-red-500 text-xs font-bold pl-10">出局</span>}
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-[11px] font-medium bg-white px-1.5 py-1 rounded border">
+                        <span className="flex items-center gap-0.5 text-green-600">🪙 {p.spine}</span>
+                        <span className="flex items-center gap-0.5 text-blue-600">⚡ {p.foot}</span>
+                        <span className="text-gray-500 w-full">手牌: {p.hand.length}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="flex-1 min-h-[150px] flex flex-col">
-                <h3 className="font-bold text-gray-700 mb-2">战况记录</h3>
-                <div className="flex-1 bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-y-auto space-y-2">
+              <div className="flex-1 min-h-[120px] flex flex-col">
+                <h3 className="font-bold text-gray-700 mb-1 text-sm">战况记录</h3>
+                <div className="flex-1 bg-gray-900 text-green-400 p-2 rounded-lg text-[10px] font-mono overflow-y-auto space-y-1.5 leading-snug">
                   {logs.map((log, i) => <div key={i}>{log}</div>)}
                   <div ref={endLogRef} />
                 </div>
               </div>
             </div>
 
-            <div className="w-full md:w-2/3 flex flex-col bg-green-50 p-2 md:p-4 h-auto md:h-screen overflow-y-auto">
-              {/* 减少了主容器的内边距 p-6 -> p-4 */}
+            {/* ----- 右侧栏：占据剩余所有空间 ----- */}
+            <div className="flex-1 flex flex-col w-full bg-green-50 p-2 md:p-4 h-auto md:h-screen overflow-y-auto">
               <div className="bg-white rounded-2xl shadow-lg p-4 mb-2 flex-1 flex flex-col min-h-max">
-                {/* 减少了头部的下边距 */}
-                <div className="flex justify-between items-center border-b pb-2 mb-2">
+                <div className="flex justify-between items-center border-b pb-2 mb-2 pr-20">
                   <div>
                     <h2 className="text-xl font-bold text-gray-800">轮到 {currentPlayer.name}</h2>
                     <div className="text-purple-600 font-medium text-xs mt-1 flex items-start gap-1">
@@ -506,43 +723,44 @@
                   </div>
                 </div>
 
-                {/* 游戏地图区域 减少了下边距 mb-8 -> mb-3 */}
-                <div className="relative w-full mb-3 rounded-xl overflow-hidden shadow-inner border-2 border-green-300 bg-green-100" style={{ aspectRatio: '16/11' }}>
-                  <img src="游戏地图.jpg" alt="游戏地图" className="absolute inset-0 w-full h-full object-cover" />
-                  
-                  {players.map((p, idx) => {
-                    if (p.isOut) return null;
-                    const footVal = Math.max(0, Math.min(49, p.foot));
-                    const pos = CELL_POSITIONS[footVal];
-                    const offset = idx * 6;
-                    const isCurrent = idx === currentPlayerIdx;
+                {/* 游戏地图区域：增加最大高度限制，防止把下面内容挤出屏幕 */}
+                <div className="w-full flex justify-center mb-2">
+                  <div className="relative w-full rounded-xl overflow-hidden shadow-inner border-2 border-green-300 bg-green-100" 
+                       style={{ aspectRatio: '16/11', maxHeight: '52vh', maxWidth: 'calc(52vh * 16 / 11)' }}>
+                    <img src="游戏地图.jpg" alt="游戏地图" className="absolute inset-0 w-full h-full object-cover" />
+                    
+                    {players.map((p, idx) => {
+                      if (p.isOut) return null;
+                      const footVal = Math.max(0, Math.min(49, p.foot));
+                      const pos = CELL_POSITIONS[footVal];
+                      const offset = idx * 6;
+                      const isCurrent = idx === currentPlayerIdx;
 
-                    return (
-                      <div
-                        key={p.id}
-                        className={`absolute transition-all duration-700 ease-in-out border-2 rounded-full flex flex-col items-center justify-center z-10 
-                          ${isCurrent ? 'border-yellow-400 ring-4 ring-yellow-400/50 shadow-[0_0_15px_rgba(250,204,21,0.8)] z-20 scale-110' : 'border-white shadow-lg'}`}
-                        style={{
-                          left: `calc(${pos.x}% + ${offset}px)`,
-                          top: `calc(${pos.y}% + ${offset}px)`,
-                          width: '45px',
-                          height: '45px',
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                      >
-                        <img src={AVATAR_MAP[p.role.name]} className="w-full h-full object-cover rounded-full bg-white" alt={p.name} />
-                        <span className="absolute -bottom-6 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded-md whitespace-nowrap font-bold shadow-md">
-                          {p.name}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div
+                          key={p.id}
+                          className={`absolute transition-all duration-700 ease-in-out border-2 rounded-full flex flex-col items-center justify-center z-10 
+                            ${isCurrent ? 'border-yellow-400 ring-4 ring-yellow-400/50 shadow-[0_0_15px_rgba(250,204,21,0.8)] z-20 scale-110' : 'border-white shadow-lg'}`}
+                          style={{
+                            left: `calc(${pos.x}% + ${offset}px)`,
+                            top: `calc(${pos.y}% + ${offset}px)`,
+                            width: '35px',  // 棋子略微缩小以适应紧凑地图
+                            height: '35px',
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        >
+                          <img src={AVATAR_MAP[p.role.name]} className="w-full h-full object-cover rounded-full bg-white" alt={p.name} />
+                          <span className="absolute -bottom-5 bg-black/80 text-white text-[9px] px-1 py-0.5 rounded whitespace-nowrap font-bold shadow-md">
+                            {p.name}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* --- 紧凑排版的核心：将“状态面板”和“操作按钮”放在同一行 --- */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-3 mb-3">
-                  {/* 核心数值面板 - 变小并横向排列 */}
-                  <div className="flex gap-3">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-3 mb-2">
+                  <div className="flex gap-2">
                     <div className="bg-green-100 rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm border border-green-200">
                       <span className="text-2xl">🪙</span>
                       <div className="flex flex-col items-start">
@@ -559,7 +777,6 @@
                     </div>
                   </div>
 
-                  {/* 操作按钮 - 移到右侧 */}
                   <div className="w-full md:w-auto flex-1 md:flex-none">
                     {turnPhase === 'draw' ? (
                       <button 
@@ -579,8 +796,7 @@
                   </div>
                 </div>
 
-                {/* 手牌区高度压缩 */}
-                <div className="flex-1 flex flex-col min-h-[110px]">
+                <div className="flex-1 flex flex-col min-h-[100px]">
                   <h3 className="font-bold text-gray-700 mb-1 flex items-center gap-2 text-sm">你的手牌</h3>
                   <div className="flex gap-2 overflow-x-auto pb-1 flex-1 items-start">
                     {currentPlayer.hand.length === 0 ? (
@@ -594,7 +810,8 @@
               </div>
             </div>
 
-            {modal?.type === 'risk' && (
+            {/* 常规风险弹窗 */}
+            {modal?.type === 'risk' && !modal.selectingTarget && (
               <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
                   <div className="text-5xl mb-4">⚠️</div>
@@ -605,6 +822,15 @@
                   </div>
                   
                   <div className="flex flex-col gap-3">
+                    {scapegoatIdx !== -1 && validTargets.length > 0 && (
+                      <button 
+                        onClick={() => setModal({...modal, selectingTarget: true, scapegoatIdx})}
+                        className="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 rounded-lg text-lg shadow-md border-2 border-purple-600 animate-pulse"
+                      >
+                        🃏 使用【顶包卡】转移风险
+                      </button>
+                    )}
+
                     {currentPlayer.role.name === '足球小将' && !currentPlayer.abilities.footballUsed && (
                       <button 
                         onClick={() => resolveRisk(true)}
@@ -624,21 +850,85 @@
               </div>
             )}
 
+            {/* 顶包卡目标选择弹窗 */}
+            {modal?.type === 'risk' && modal.selectingTarget && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl border-4 border-purple-400">
+                  <div className="text-5xl mb-4">🎯</div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-4">请选择顶包对象</h3>
+                  <p className="text-sm text-gray-600 mb-4">把【{modal.card.name}】转移给谁？</p>
+                  <div className="flex flex-col gap-3">
+                    {players.map((p, idx) => {
+                      if (p.isOut || idx === currentPlayerIdx) return null;
+                      return (
+                        <button 
+                          key={p.id} 
+                          onClick={() => executeTransfer(idx, modal.scapegoatIdx)} 
+                          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-lg text-lg shadow-md flex items-center justify-center gap-2"
+                        >
+                          <img src={AVATAR_MAP[p.role.name]} className="w-6 h-6 rounded-full border border-white" />
+                          转移给 {p.name}
+                        </button>
+                      );
+                    })}
+                    <button 
+                      onClick={() => setModal({...modal, selectingTarget: false})} 
+                      className="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 rounded-lg shadow-md"
+                    >
+                      取消转移
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 摇骰子弹窗 */}
+            {modal?.type === 'dice' && (
+              <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-6">抽取知识问答</h3>
+                  
+                  <div className={`text-6xl font-black mb-8 text-indigo-600 w-32 h-32 mx-auto bg-indigo-50 rounded-3xl flex items-center justify-center border-4 border-indigo-200 shadow-inner ${isRolling ? 'dice-rolling' : ''}`}>
+                    {diceNumber}
+                  </div>
+
+                  {!isRolling ? (
+                    <button 
+                      onClick={rollDiceForTrivia}
+                      className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg transition text-xl flex justify-center items-center gap-2"
+                    >
+                      🎲 点击摇骰子 (1~12)
+                    </button>
+                  ) : (
+                    <div className="text-gray-500 font-bold py-4 animate-pulse">
+                      抽取题目中...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 真实答题弹窗 */}
             {modal?.type === 'trivia' && (
               <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-                  <div className="flex items-center gap-3 mb-4 border-b pb-3">
-                    <span className="text-3xl">❓</span>
-                    <h3 className="text-xl font-bold text-gray-800">健康知识问答</h3>
+                <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border-t-8 border-yellow-400">
+                  <div className="flex items-center justify-between mb-4 border-b pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">❓</span>
+                      <h3 className="text-xl font-bold text-gray-800">健康知识问答</h3>
+                    </div>
+                    <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">
+                      第 {modal.question.id} 题
+                    </span>
                   </div>
-                  <p className="text-gray-700 font-bold mb-6 text-xl leading-relaxed">{modal.question.q}</p>
+                  <p className="text-gray-700 font-bold mb-6 text-lg leading-relaxed">{modal.question.q}</p>
                   
                   <div className="flex flex-col gap-4">
                     {modal.question.options.map((opt, idx) => (
                       <button 
                         key={idx}
                         onClick={() => resolveTrivia(idx === modal.question.correct)}
-                        className="w-full text-left bg-gray-50 hover:bg-yellow-50 border-2 border-gray-200 hover:border-yellow-400 p-4 rounded-xl transition text-gray-800 font-bold text-lg"
+                        className="w-full text-left bg-gray-50 hover:bg-yellow-50 border-2 border-gray-200 hover:border-yellow-400 p-4 rounded-xl transition text-gray-800 font-bold text-base"
                       >
                         {opt}
                       </button>
@@ -706,6 +996,8 @@
           {gameState === 'menu' && renderMenu()}
           {gameState === 'playing' && renderGame()}
           {gameState === 'gameover' && renderGameOver()}
+          {/* 渲染全局牌库模块 */}
+          {renderLibrary()}
         </div>
       );
     }
