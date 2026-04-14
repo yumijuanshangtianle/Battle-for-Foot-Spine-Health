@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>足脊健康保卫战</title>
+  
+  <!-- 引入 Tailwind CSS 库 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 引入 React 相关库 -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900">
+  
+  <div id="root"></div>
+
+  <!-- React 游戏代码 -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- 数据定义 ---
+
+    // 角色头像图片映射 (修复了文件后缀名，统一改为 png)
+    const AVATAR_MAP = {
+      '课代表': '1 课代表.png',
+      '足球小将': '2 足球小将.png',
+      '游戏爱好者': '5 电竞爱好者.png',
+      '活力运动员': '6 短跑员.png',
+      '书包超重者': '3 书包超重同学.png',
+      '舞蹈生': '4 舞蹈生.png',
+      '美术生': '7 美术生.png',
+      '值日班长': '把图_1_人物的体型修改成与图_202604011758.png'
+    };
+
+    // 0-49格 对应地图上的位置百分比
+    const CELL_POSITIONS = [
+      { x: 10, y: 15 }, { x: 10, y: 25 }, { x: 10, y: 35 }, { x: 11, y: 45 }, { x: 11, y: 55 }, // 0-4
+      { x: 12, y: 65 }, { x: 14, y: 75 }, { x: 16, y: 83 }, { x: 22, y: 88 }, { x: 30, y: 86 }, // 5-9
+      { x: 34, y: 78 }, { x: 35, y: 68 }, { x: 36, y: 58 }, { x: 36, y: 48 }, { x: 35, y: 38 }, // 10-14
+      { x: 33, y: 28 }, { x: 32, y: 18 }, { x: 35, y: 10 }, { x: 42, y: 9 },  { x: 48, y: 14 }, // 15-19
+      { x: 52, y: 22 }, { x: 53, y: 32 }, { x: 53, y: 42 }, { x: 52, y: 52 }, { x: 50, y: 62 }, // 20-24
+      { x: 48, y: 72 }, { x: 50, y: 80 }, { x: 56, y: 86 }, { x: 64, y: 85 }, { x: 70, y: 78 }, // 25-29
+      { x: 73, y: 68 }, { x: 74, y: 58 }, { x: 74, y: 48 }, { x: 73, y: 38 }, { x: 71, y: 28 }, // 30-34
+      { x: 69, y: 18 }, { x: 72, y: 10 }, { x: 79, y: 9 },  { x: 86, y: 13 }, { x: 90, y: 21 }, // 35-39
+      { x: 92, y: 31 }, { x: 92, y: 41 }, { x: 91, y: 51 }, { x: 90, y: 61 }, { x: 88, y: 71 }, // 40-44
+      { x: 85, y: 80 }, { x: 86, y: 88 }, { x: 92, y: 92 }, { x: 96, y: 85 }, { x: 95, y: 75 }  // 45-49
+    ];
+
+    const ROLES = [
+      { id: 'r1', name: '课代表', desc: '被动：回合结束时有几率触发额外答题机会，答对+2脊柱。' },
+      { id: 'r2', name: '足球小将', desc: '主动：每局游戏可免疫1次风险事件。' },
+      { id: 'r3', name: '游戏爱好者', desc: '被动：受“久坐疲劳”或“低头玩手机”影响时，扣分减半。' },
+      { id: 'r4', name: '活力运动员', desc: '被动：出牌消耗的足部值减少1点（即仅扣1点）。' },
+      { id: 'r5', name: '书包超重者', desc: '被动：免疫“单肩书包”和“书包超重”风险。' },
+      { id: 'r6', name: '舞蹈生', desc: '被动：使用姿势卡时，额外恢复1点脊柱健康币。' },
+      { id: 'r7', name: '美术生', desc: '被动：知识问答答对时，额外获得1点脊柱健康币。' },
+      { id: 'r8', name: '值日班长', desc: '被动：回合结束时，恢复1点足部值。' },
+    ];
+
+    const CARDS_DATA = {
+      postures: [
+        { name: '端正坐姿', effect: { spine: 2, foot: 0 }, count: 1 },
+        { name: '正确拉伸姿势', effect: { spine: 2, foot: 2 }, count: 1 },
+        { name: '阅读姿势', effect: { spine: 2, foot: 0 }, count: 1 },
+        { name: '睡眠正确姿势', effect: { spine: 2, foot: 2 }, count: 1 },
+        { name: '勾脚绷脚运动', effect: { spine: 0, foot: 4 }, count: 1 },
+        { name: '正确站姿', effect: { spine: 2, foot: 0 }, count: 1 },
+      ],
+      risks: [
+        { name: '低头玩手机', effect: { spine: -4, foot: 0 }, count: 1 },
+        { name: '久坐疲劳', effect: { spine: -2, foot: -1 }, count: 2 },
+        { name: '耸肩驼背', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '翘腿悬空', effect: { spine: 0, foot: -2 }, count: 1 },
+        { name: '单肩书包', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '低头走路', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '猛弯腰捡物', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '趴桌阅读', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '伏案写字', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '趴睡侧歪', effect: { spine: -4, foot: 0 }, count: 1 },
+        { name: '穿不合适鞋子', effect: { spine: 0, foot: -4 }, count: 1 },
+        { name: '无课间活动', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '蹲姿错误', effect: { spine: 0, foot: -2 }, count: 1 },
+        { name: '歪坐不均', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '站姿倾斜', effect: { spine: -2, foot: 0 }, count: 1 },
+        { name: '日常磨损', effect: { spine: -2, foot: -1 }, count: 1 },
+        { name: '书包超重', effect: { spine: -2, foot: -1 }, count: 1 },
+      ],
+      items: [
+        { name: '靠垫', desc: '脊柱+2', effect: { spine: 2, foot: 0 }, count: 4 },
+        { name: '筋膜球', desc: '足部+2', effect: { spine: 0, foot: 2 }, count: 4 },
+        { name: '休息室', desc: '足部+3', effect: { spine: 0, foot: 3 }, count: 2 },
+        { name: '营养套餐', desc: '脊柱+1, 足部+1', effect: { spine: 1, foot: 1 }, count: 3 },
+        { name: '护眼镜', desc: '脊柱+2', effect: { spine: 2, foot: 0 }, count: 2 },
+      ],
+      trivia: [
+        { name: '知识问答卡', effect: { spine: 0, foot: 0 }, count: 10 }
+      ]
+    };
+
+    const TRIVIA_QUESTIONS = [
+      { q: '正常人的脊柱有多少个生理弯曲？', options: ['A. 2个', 'B. 4个'], correct: 1 },
+      { q: '良好的阅读距离应该是多少？', options: ['A. 10厘米左右', 'B. 33-35厘米'], correct: 1 },
+      { q: '长时间跷二郎腿最容易引起什么问题？', options: ['A. 骨盆倾斜与脊柱侧弯', 'B. 视力急剧下降'], correct: 0 },
+      { q: '睡眠时哪种姿势对脊柱最友好？', options: ['A. 趴着睡', 'B. 平躺或侧卧'], correct: 1 },
+      { q: '健康的书包重量不应超过体重的多少？', options: ['A. 10%-15%', 'B. 30%'], correct: 0 },
+      { q: '出现高低肩可能是因为什么不良习惯？', options: ['A. 经常单肩背包', 'B. 每天跑步'], correct: 0 },
+    ];
+
+    function App() {
+      const [gameState, setGameState] = useState('menu'); // menu, playing, gameover
+      const [playerCount, setPlayerCount] = useState(2);
+      const [players, setPlayers] = useState([]);
+      const [currentPlayerIdx, setCurrentPlayerIdx] = useState(0);
+      const [deck, setDeck] = useState([]);
+      const [logs, setLogs] = useState([]);
+      const [turnPhase, setTurnPhase] = useState('draw'); // draw, action
+      
+      const [modal, setModal] = useState(null);
+
+      const endLogRef = useRef(null);
+
+      useEffect(() => {
+        endLogRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, [logs]);
+
+      const addLog = (msg) => {
+        setLogs(prev => [...prev, msg]);
+      };
+
+      const buildDeck = () => {
+        let nonRisks = [];
+        let risks = [];
+
+        const addCards = (source, type, target) => {
+          source.forEach(c => {
+            for (let i = 0; i < c.count; i++) {
+              target.push({ ...c, type, id: Math.random().toString(36).substr(2, 9) });
+            }
+          });
+        };
+
+        addCards(CARDS_DATA.postures, 'posture', nonRisks);
+        addCards(CARDS_DATA.items, 'item', nonRisks);
+        addCards(CARDS_DATA.trivia, 'trivia', nonRisks);
+        addCards(CARDS_DATA.risks, 'risk', risks);
+
+        nonRisks.sort(() => Math.random() - 0.5);
+        risks.sort(() => Math.random() - 0.5);
+
+        return { nonRisks, risks };
+      };
+
+      const startGame = () => {
+        const { nonRisks, risks } = buildDeck();
+        let currentDeck = [...nonRisks];
+        
+        const shuffledRoles = [...ROLES].sort(() => Math.random() - 0.5);
+        const initialPlayers = [];
+
+        for (let i = 0; i < playerCount; i++) {
+          const hand = currentDeck.splice(0, 4);
+          initialPlayers.push({
+            id: i,
+            name: `玩家 ${i + 1}`,
+            role: shuffledRoles[i],
+            foot: 25,
+            spine: 50,
+            hand: hand,
+            isOut: false,
+            abilities: { footballUsed: false }
+          });
+        }
+
+        let finalDeck = [...currentDeck, ...risks].sort(() => Math.random() - 0.5);
+
+        setPlayers(initialPlayers);
+        setDeck(finalDeck);
+        setCurrentPlayerIdx(0);
+        setTurnPhase('draw');
+        setLogs(['游戏开始！每位玩家获得4张初始手牌。']);
+        setGameState('playing');
+      };
+
+      const updatePlayer = (idx, changes) => {
+        setPlayers(prev => {
+          const newPlayers = [...prev];
+          let p = { ...newPlayers[idx], ...changes };
+          if (p.foot <= 0 && !p.isOut) {
+            p.isOut = true;
+            p.foot = 0;
+            addLog(`❌ ${p.name} 的足部值耗尽，已退出游戏！`);
+          }
+          newPlayers[idx] = p;
+          return newPlayers;
+        });
+      };
+
+      useEffect(() => {
+        if (gameState !== 'playing') return;
+        const activePlayers = players.filter(p => !p.isOut);
+        if (activePlayers.length === 0 || deck.length === 0) {
+          setGameState('gameover');
+        } else if (players[currentPlayerIdx].isOut) {
+          handleEndTurn();
+        }
+      }, [players, deck, currentPlayerIdx, gameState]);
+
+      const handleDraw = () => {
+        const player = players[currentPlayerIdx];
+        if (player.foot <= 1) {
+          updatePlayer(currentPlayerIdx, { foot: 0 });
+          return;
+        }
+
+        updatePlayer(currentPlayerIdx, { foot: player.foot - 1 });
+        addLog(`🃏 ${player.name} 消耗1点足部值抽牌。`);
+
+        if (deck.length === 0) return;
+        const newDeck = [...deck];
+        const drawnCard = newDeck.pop();
+        setDeck(newDeck);
+
+        if (drawnCard.type === 'risk') {
+          setModal({ type: 'risk', card: drawnCard });
+        } else {
+          addLog(`📥 ${player.name} 获得卡牌: ${drawnCard.name}`);
+          const newHand = [...player.hand, drawnCard];
+          updatePlayer(currentPlayerIdx, { hand: newHand });
+          setTurnPhase('action');
+        }
+      };
+
+      const resolveRisk = (useAbility = false) => {
+        const player = players[currentPlayerIdx];
+        const card = modal.card;
+        setModal(null);
+        setTurnPhase('action');
+
+        if (useAbility && player.role.name === '足球小将') {
+          updatePlayer(currentPlayerIdx, { 
+            abilities: { ...player.abilities, footballUsed: true } 
+          });
+          addLog(`🛡️ ${player.name} 发动【足球小将】技能，完全免疫了 ${card.name}！`);
+          return;
+        }
+
+        if (player.role.name === '书包超重者' && (card.name === '单肩书包' || card.name === '书包超重')) {
+          addLog(`🛡️ ${player.name} 发动【书包超重者】被动，免疫了 ${card.name}！`);
+          return;
+        }
+
+        let spineMod = card.effect.spine;
+        let footMod = card.effect.foot;
+
+        if (player.role.name === '游戏爱好者' && (card.name === '久坐疲劳' || card.name === '低头玩手机')) {
+          spineMod = Math.ceil(spineMod / 2);
+          footMod = Math.ceil(footMod / 2);
+          addLog(`🎮 ${player.name} 发动【游戏爱好者】被动，${card.name} 伤害减半！`);
+        }
+
+        addLog(`⚠️ ${player.name} 遭受风险 ${card.name} (脊柱${spineMod}, 足部${footMod})`);
+        
+        updatePlayer(currentPlayerIdx, { 
+          spine: player.spine + spineMod,
+          foot: player.foot + footMod
+        });
+      };
+
+      const resolveTrivia = (isCorrect) => {
+        const player = players[currentPlayerIdx];
+        const cost = modal.playCost || 0;
+        const cardIdx = modal.cardIdx;
+        
+        setModal(null);
+        setTurnPhase('action');
+
+        let reward = 2;
+        if (player.role.name === '美术生') {
+          reward = 3;
+          addLog(`🎨 ${player.name} 发动【美术生】被动，答题额外+1分！`);
+        }
+
+        let newSpine = player.spine;
+        if (isCorrect) {
+          addLog(`✅ ${player.name} 答对了健康知识！脊柱 +${reward}`);
+          newSpine += reward;
+        } else {
+          addLog(`❌ ${player.name} 答错了，脊柱 -1`);
+          newSpine -= 1;
+        }
+
+        let newFoot = player.foot - cost;
+        let newHand = [...player.hand];
+
+        if (cardIdx !== undefined) {
+          newHand.splice(cardIdx, 1);
+        }
+
+        updatePlayer(currentPlayerIdx, { 
+          spine: newSpine, 
+          foot: newFoot,
+          hand: newHand
+        });
+      };
+
+      const handlePlayCard = (cardIdx) => {
+        const player = players[currentPlayerIdx];
+        const cost = player.role.name === '活力运动员' ? 1 : 2;
+
+        if (player.foot <= cost) {
+          alert(`足部值不足以出牌（需要 ${cost} 点）！`);
+          return;
+        }
+
+        const card = player.hand[cardIdx];
+
+        if (card.type === 'trivia') {
+          addLog(`🃏 ${player.name} 消耗 ${cost} 点足部值，打出 [${card.name}]。`);
+          const q = TRIVIA_QUESTIONS[Math.floor(Math.random() * TRIVIA_QUESTIONS.length)];
+          setModal({ type: 'trivia', card, question: q, playCost: cost, cardIdx });
+          return;
+        }
+        
+        let newSpine = player.spine + card.effect.spine;
+        let newFoot = player.foot - cost + card.effect.foot;
+
+        if (player.role.name === '舞蹈生' && card.type === 'posture') {
+          newSpine += 1;
+          addLog(`💃 ${player.name} 发动【舞蹈生】被动，姿势卡额外恢复1点脊柱！`);
+        }
+
+        addLog(`🃏 ${player.name} 消耗 ${cost} 点足部值，打出 [${card.name}]。`);
+
+        const newHand = [...player.hand];
+        newHand.splice(cardIdx, 1);
+
+        updatePlayer(currentPlayerIdx, {
+          hand: newHand,
+          spine: newSpine,
+          foot: newFoot
+        });
+      };
+
+      const handleEndTurn = () => {
+        const player = players[currentPlayerIdx];
+        
+        if (!player.isOut) {
+          if (player.role.name === '值日班长') {
+             updatePlayer(currentPlayerIdx, { foot: player.foot + 1 });
+             addLog(`🧹 ${player.name} 发动【值日班长】被动，回合结束恢复1点足部值。`);
+          }
+          if (player.role.name === '课代表' && Math.random() > 0.5) {
+             addLog(`📚 ${player.name} 发动【课代表】被动，检查作业顺利，脊柱+1。`);
+             updatePlayer(currentPlayerIdx, { spine: player.spine + 1 });
+          }
+        }
+
+        let nextIdx = (currentPlayerIdx + 1) % playerCount;
+        let loopCount = 0;
+        while (players[nextIdx]?.isOut && loopCount < playerCount) {
+          nextIdx = (nextIdx + 1) % playerCount;
+          loopCount++;
+        }
+
+        setCurrentPlayerIdx(nextIdx);
+        setTurnPhase('draw');
+      };
+
+      const renderMenu = () => (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-green-50 p-6">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden text-center">
+            <div className="bg-green-600 p-6 text-white">
+              <h1 className="text-3xl font-bold mb-2">足脊健康保卫战</h1>
+              <p className="text-green-100">青少年科普互动模拟器</p>
+            </div>
+            <div className="p-8">
+              <p className="text-gray-600 mb-6 text-sm text-left leading-relaxed">
+                在有限的行动点内，合理抽牌、出牌、应对风险事件，维持脊柱与足部状态！健康币数量最多的玩家获胜。
+              </p>
+              <div className="mb-6">
+                <label className="block text-gray-700 font-medium mb-2">选择游玩人数 (本地传阅)</label>
+                <select 
+                  value={playerCount} 
+                  onChange={(e) => setPlayerCount(Number(e.target.value))}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                >
+                  <option value={2}>2 人</option>
+                  <option value={3}>3 人</option>
+                  <option value={4}>4 人</option>
+                </select>
+              </div>
+              <button 
+                onClick={startGame}
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition transform hover:scale-105 flex items-center justify-center gap-2"
+              >
+                ▶️ 开始游戏
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+
+      const renderCard = (card, idx, isHand = false) => {
+        const isPosture = card.type === 'posture';
+        const isItem = card.type === 'item';
+        const isTrivia = card.type === 'trivia';
+        
+        let colorClass = isPosture ? 'bg-green-100 border-green-400 text-green-800' : 
+                         isTrivia ? 'bg-yellow-100 border-yellow-400 text-yellow-800' :
+                         'bg-blue-100 border-blue-400 text-blue-800';
+        
+        // 压缩了卡片的内边距和宽度
+        return (
+          <div key={idx} className={`relative flex flex-col p-2 border-2 rounded-lg shadow-sm ${colorClass} w-24 shrink-0`}>
+            <div className="font-bold text-xs mb-1 line-clamp-1" title={card.name}>{card.name}</div>
+            <div className="text-[10px] flex-1 leading-tight">
+              {card.effect && card.effect.spine !== 0 && <div>脊柱: {card.effect.spine > 0 ? '+'+card.effect.spine : card.effect.spine}</div>}
+              {card.effect && card.effect.foot !== 0 && <div>足部: {card.effect.foot > 0 ? '+'+card.effect.foot : card.effect.foot}</div>}
+              {isTrivia && <div className="mt-0.5 font-bold">答题赢分</div>}
+            </div>
+            {isHand && turnPhase === 'action' && (
+              <button 
+                onClick={() => handlePlayCard(idx)}
+                className="mt-1 bg-white text-gray-800 text-[10px] py-1 px-1 rounded border border-gray-300 hover:bg-gray-100 font-bold leading-none"
+              >
+                出牌(耗{players[currentPlayerIdx].role.name === '活力运动员' ? 1 : 2})
+              </button>
+            )}
+          </div>
+        );
+      };
+
+      const renderGame = () => {
+        const currentPlayer = players[currentPlayerIdx];
+
+        return (
+          <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row max-w-6xl mx-auto shadow-2xl">
+            
+            <div className="w-full md:w-1/3 bg-white border-r p-4 flex flex-col h-auto md:h-screen overflow-y-auto">
+              <div className="flex items-center justify-between mb-4 bg-gray-100 p-3 rounded-lg">
+                <div>
+                  <span className="text-xs text-gray-500 block">剩余牌堆</span>
+                  <span className="font-bold text-lg">{deck.length} 张</span>
+                </div>
+                <span className="text-xl">🎴</span>
+              </div>
+
+              <h3 className="font-bold text-gray-700 mb-2">玩家状态</h3>
+              <div className="space-y-3 mb-6">
+                {players.map((p, i) => (
+                  <div key={p.id} className={`p-3 rounded-lg border ${i === currentPlayerIdx ? 'border-green-500 bg-green-50 shadow-md' : 'border-gray-200'} ${p.isOut ? 'opacity-50' : ''}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="flex items-center gap-2">
+                        <img src={AVATAR_MAP[p.role.name]} className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover bg-gray-100" alt="avatar" />
+                        <div>
+                          <span className="font-bold flex items-center gap-1">
+                            {p.name} {i === currentPlayerIdx && ' (当前)'}
+                          </span>
+                          <div className="text-xs text-gray-600">
+                            <span className="font-semibold text-purple-700">[{p.role.name}]</span>
+                          </div>
+                        </div>
+                      </div>
+                      {p.isOut && <span className="text-red-500 text-xs font-bold mt-1">出局</span>}
+                    </div>
+                    <div className="flex gap-4 text-sm font-medium mt-3 bg-white px-2 py-1 rounded border">
+                      <span className="flex items-center gap-1 text-green-600">🪙 {p.spine}</span>
+                      <span className="flex items-center gap-1 text-blue-600">⚡ {p.foot}</span>
+                      <span className="text-gray-500">手牌: {p.hand.length}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex-1 min-h-[150px] flex flex-col">
+                <h3 className="font-bold text-gray-700 mb-2">战况记录</h3>
+                <div className="flex-1 bg-gray-900 text-green-400 p-3 rounded-lg text-xs font-mono overflow-y-auto space-y-2">
+                  {logs.map((log, i) => <div key={i}>{log}</div>)}
+                  <div ref={endLogRef} />
+                </div>
+              </div>
+            </div>
+
+            <div className="w-full md:w-2/3 flex flex-col bg-green-50 p-2 md:p-4 h-auto md:h-screen overflow-y-auto">
+              {/* 减少了主容器的内边距 p-6 -> p-4 */}
+              <div className="bg-white rounded-2xl shadow-lg p-4 mb-2 flex-1 flex flex-col min-h-max">
+                {/* 减少了头部的下边距 */}
+                <div className="flex justify-between items-center border-b pb-2 mb-2">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">轮到 {currentPlayer.name}</h2>
+                    <div className="text-purple-600 font-medium text-xs mt-1 flex items-start gap-1">
+                      ℹ️ {currentPlayer.role.name}：{currentPlayer.role.desc}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 游戏地图区域 减少了下边距 mb-8 -> mb-3 */}
+                <div className="relative w-full mb-3 rounded-xl overflow-hidden shadow-inner border-2 border-green-300 bg-green-100" style={{ aspectRatio: '16/11' }}>
+                  <img src="游戏地图.jpg" alt="游戏地图" className="absolute inset-0 w-full h-full object-cover" />
+                  
+                  {players.map((p, idx) => {
+                    if (p.isOut) return null;
+                    const footVal = Math.max(0, Math.min(49, p.foot));
+                    const pos = CELL_POSITIONS[footVal];
+                    const offset = idx * 6;
+                    const isCurrent = idx === currentPlayerIdx;
+
+                    return (
+                      <div
+                        key={p.id}
+                        className={`absolute transition-all duration-700 ease-in-out border-2 rounded-full flex flex-col items-center justify-center z-10 
+                          ${isCurrent ? 'border-yellow-400 ring-4 ring-yellow-400/50 shadow-[0_0_15px_rgba(250,204,21,0.8)] z-20 scale-110' : 'border-white shadow-lg'}`}
+                        style={{
+                          left: `calc(${pos.x}% + ${offset}px)`,
+                          top: `calc(${pos.y}% + ${offset}px)`,
+                          width: '45px',
+                          height: '45px',
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                      >
+                        <img src={AVATAR_MAP[p.role.name]} className="w-full h-full object-cover rounded-full bg-white" alt={p.name} />
+                        <span className="absolute -bottom-6 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded-md whitespace-nowrap font-bold shadow-md">
+                          {p.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* --- 紧凑排版的核心：将“状态面板”和“操作按钮”放在同一行 --- */}
+                <div className="flex flex-col md:flex-row justify-between items-center gap-3 mb-3">
+                  {/* 核心数值面板 - 变小并横向排列 */}
+                  <div className="flex gap-3">
+                    <div className="bg-green-100 rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm border border-green-200">
+                      <span className="text-2xl">🪙</span>
+                      <div className="flex flex-col items-start">
+                        <span className="text-[10px] text-green-800 font-bold leading-none mb-1">脊柱币</span>
+                        <span className="text-xl font-black text-green-700 leading-none">{currentPlayer.spine}</span>
+                      </div>
+                    </div>
+                    <div className="bg-blue-100 rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm border border-blue-200">
+                      <span className="text-2xl">⚡</span>
+                      <div className="flex flex-col items-start">
+                        <span className="text-[10px] text-blue-800 font-bold leading-none mb-1">足部值</span>
+                        <span className="text-xl font-black text-blue-700 leading-none">{currentPlayer.foot}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 操作按钮 - 移到右侧 */}
+                  <div className="w-full md:w-auto flex-1 md:flex-none">
+                    {turnPhase === 'draw' ? (
+                      <button 
+                        onClick={handleDraw}
+                        className="w-full px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2 text-sm"
+                      >
+                        ⚡ 抽1张牌 (耗1足)
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={handleEndTurn}
+                        className="w-full px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2 text-sm"
+                      >
+                        ✅ 结束当前回合
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 手牌区高度压缩 */}
+                <div className="flex-1 flex flex-col min-h-[110px]">
+                  <h3 className="font-bold text-gray-700 mb-1 flex items-center gap-2 text-sm">你的手牌</h3>
+                  <div className="flex gap-2 overflow-x-auto pb-1 flex-1 items-start">
+                    {currentPlayer.hand.length === 0 ? (
+                      <div className="text-gray-400 text-xs italic mt-2 w-full text-center">手牌空空如也</div>
+                    ) : (
+                      currentPlayer.hand.map((card, idx) => renderCard(card, idx, true))
+                    )}
+                  </div>
+                </div>
+                
+              </div>
+            </div>
+
+            {modal?.type === 'risk' && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+                  <div className="text-5xl mb-4">⚠️</div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">遭遇风险！</h3>
+                  <p className="text-red-600 font-bold text-xl mb-4">{modal.card.name}</p>
+                  <div className="bg-gray-100 rounded-lg p-3 text-base font-bold text-gray-700 mb-6">
+                    效果: 脊柱 {modal.card.effect.spine}, 足部 {modal.card.effect.foot}
+                  </div>
+                  
+                  <div className="flex flex-col gap-3">
+                    {currentPlayer.role.name === '足球小将' && !currentPlayer.abilities.footballUsed && (
+                      <button 
+                        onClick={() => resolveRisk(true)}
+                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg text-lg shadow-md"
+                      >
+                        ⚽ 使用技能：完全免疫此风险
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => resolveRisk(false)}
+                      className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg text-lg shadow-md"
+                    >
+                      默默承受
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {modal?.type === 'trivia' && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+                  <div className="flex items-center gap-3 mb-4 border-b pb-3">
+                    <span className="text-3xl">❓</span>
+                    <h3 className="text-xl font-bold text-gray-800">健康知识问答</h3>
+                  </div>
+                  <p className="text-gray-700 font-bold mb-6 text-xl leading-relaxed">{modal.question.q}</p>
+                  
+                  <div className="flex flex-col gap-4">
+                    {modal.question.options.map((opt, idx) => (
+                      <button 
+                        key={idx}
+                        onClick={() => resolveTrivia(idx === modal.question.correct)}
+                        className="w-full text-left bg-gray-50 hover:bg-yellow-50 border-2 border-gray-200 hover:border-yellow-400 p-4 rounded-xl transition text-gray-800 font-bold text-lg"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        );
+      };
+
+      const renderGameOver = () => {
+        const sorted = [...players].sort((a, b) => {
+          if (b.spine !== a.spine) return b.spine - a.spine;
+          return b.foot - a.foot;
+        });
+
+        const winner = sorted[0];
+
+        return (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+            <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden text-center p-8 border-t-8 border-green-500">
+              <div className="text-7xl mb-4">🏆</div>
+              <h1 className="text-3xl font-black mb-2 text-gray-800">游戏结束！</h1>
+              <p className="text-gray-500 mb-6 font-medium">牌堆已耗尽 或 仅剩一名玩家</p>
+
+              <div className="bg-gradient-to-br from-yellow-100 to-yellow-200 text-yellow-900 p-6 rounded-2xl mb-8 shadow-inner">
+                <p className="text-sm font-bold uppercase mb-2 tracking-widest opacity-80">本局健康守护者</p>
+                <div className="flex justify-center mb-3">
+                  <img src={AVATAR_MAP[winner.role.name]} className="w-20 h-20 rounded-full border-4 border-white shadow-lg object-cover" alt="avatar" />
+                </div>
+                <p className="text-3xl font-black mb-1">{winner.name}</p>
+                <p className="text-sm font-bold">{winner.role.name} | 最终健康币: {winner.spine}</p>
+              </div>
+
+              <div className="space-y-3 mb-8 text-left">
+                {sorted.map((p, i) => (
+                  <div key={p.id} className="flex justify-between items-center p-4 bg-gray-50 border rounded-xl shadow-sm">
+                    <span className="font-bold text-gray-700 flex items-center gap-2">
+                      <span className="text-gray-400 font-black italic">#{i+1}</span> {p.name}
+                    </span>
+                    <div className="text-sm font-bold text-gray-600 flex gap-4">
+                      <span className="text-green-600">🪙 {p.spine}</span>
+                      <span className="text-blue-600">⚡ {p.foot}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => setGameState('menu')}
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition text-lg"
+              >
+                返回主菜单
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="font-sans antialiased text-gray-900 selection:bg-green-200">
+          {gameState === 'menu' && renderMenu()}
+          {gameState === 'playing' && renderGame()}
+          {gameState === 'gameover' && renderGameOver()}
+        </div>
+      );
+    }
+
+    // 渲染应用
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
